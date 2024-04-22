@@ -3,6 +3,7 @@ import {ApiError} from "../utils/ApiError.js";
 import { User } from "../models/user.model.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import { Product } from "../models/product.model.js";
 
 const generateAccessAndRefereshToken = async (userId) => {
 
@@ -44,12 +45,12 @@ const registerUser = asyncHandler( async (req,res) => {
     6.  create user object as to store in mongodb we required objects - create entry 
     7.  remove password and refreshtoken field from response as data needs to be sent to frontend as well for user to know its successfull registration
     8.  check for user creation
-    9.  return response   
+    9.  return response 
 
  */
 
     // getting info
-    const {fullName,email,username,password} = req.body;
+    const {email,username,password,address} = req.body;
     console.log("body : ",req.body);
     console.log("email : ",  email);
 
@@ -63,7 +64,7 @@ const registerUser = asyncHandler( async (req,res) => {
     // checking all at once
 
     if(
-        [fullName,email,username,password].some(
+        [address,email,username,password].some(
             (field) => field?.trim() === ""
         )
     ) {
@@ -79,7 +80,7 @@ const registerUser = asyncHandler( async (req,res) => {
     if(existedUser) throw new ApiError(409,"User Already Exists ");
 
     const user = await User.create({
-        fullName,
+        address,
         email,
         password,
         username: username.toLowerCase()
@@ -93,8 +94,6 @@ const registerUser = asyncHandler( async (req,res) => {
         new ApiResponse(200,createdUser,"user registered")
     )
 });
-
-/*
 
 const loginUser = asyncHandler( async(req,res) => {
 
@@ -178,6 +177,169 @@ const logoutUser = asyncHandler( async(req,res) => {
 
 });
 
+const updateAccountDetails = asyncHandler(async(req,res) => {
+
+    const {userName,email,address,phoneNumber} = req.body;
+
+    if(!userName || !email || !address || !phoneNumber) throw new ApiError(400,"All Fields are required ! ");
+
+    const user = await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set:{
+                username:userName,   // both ways of writing is correct 
+                email:email,  // email : email, ---->  ultimately means email,
+                address:address,
+                phoneNumber:phoneNumber
+            }
+        },
+        {
+            new:true
+        }
+    ).select("-password");
+
+    return res.status(200)
+    .json(
+        new ApiResponse(200,user,"User Account Details Updated Successfully !! ")
+    );
+});
+
+const changeCurrentPassword = asyncHandler(async(req,res) => {
+
+    const {oldPassword,newPassword} = req.body;
+
+    const user = await User.findById(req.user._id);
+
+    const isPasswordValid = await user.isPasswordCorrect(oldPassword);
+
+    if(!isPasswordValid) throw new ApiError(401,"Invalid Password ! ");
+
+    user.password = newPassword;
+    await user.save({ValidateBeforeSave:false});
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200,{},"Password Changed SuccessFully !! "));
+
+});
+
+const addProductToWishlist = asyncHandler(async(req,res) => {
+
+    const user = req.user;
+
+    console.log(user);
+
+    const{productId} = req.body;
+
+    console.log(productId);
+
+    const existedProductIndex = user.wishList.findIndex(item => item.toString() === productId.toString());
+
+    if(existedProductIndex !== -1) {
+        throw new ApiError(400, "Product already exists in the wishlist");
+    }
+
+
+    if(!user) throw new ApiError(400,"user not exist");
+
+    user.wishList.push(productId);
+    await user.save();
+
+    return res.status(200)
+    .json(
+        new ApiResponse(200,user," Product added Successfully to the wishlist !! ")
+    );
+   
+});
+
+const removeProductFromWishList = asyncHandler(async(req,res) => {
+
+    const user = req.user;
+
+    console.log(user);
+
+    const{productId} = req.body;
+
+    console.log(productId);
+
+    const existedProductIndex = user.wishList.findIndex(item => item.toString() === productId.toString());
+
+    if(existedProductIndex === -1) {
+        throw new ApiError(400, "Product not Present");
+    }
+
+    if(!user) throw new ApiError(400,"user not exist");
+
+    user.wishList.splice(existedProductIndex,1);
+    await user.save();
+
+    return res.status(200)
+    .json(
+        new ApiResponse(200,user," Product removed Successfully to the wishlist !! ")
+    );
+   
+});
+
+
+const addProductToCart = asyncHandler(async(req,res) => {
+
+    const user = req.user;
+
+    console.log(user);
+
+    const{productId} = req.body;
+
+    console.log(productId);
+
+    const existedProductIndex = user.cart.findIndex(item => item.toString() === productId.toString());
+
+    if(existedProductIndex !== -1) {
+        throw new ApiError(400, "Product already exists in the Cart");
+    }
+
+
+    if(!user) throw new ApiError(400,"user not exist");
+
+    user.cart.push(productId);
+    await user.save();
+
+    return res.status(200)
+    .json(
+        new ApiResponse(200,user," Product added Successfully to the cart !! ")
+    );
+   
+});
+
+
+const removeProductFromCart = asyncHandler(async(req,res) => {
+
+    const user = req.user;
+
+    console.log(user);
+
+    const{productId} = req.body;
+
+    console.log(productId);
+
+    const existedProductIndex = user.cart.findIndex(item => item.toString() === productId.toString());
+
+    if(existedProductIndex === -1) {
+        throw new ApiError(400, "Product not Present in cart");
+    }
+
+    if(!user) throw new ApiError(400,"user not exist");
+
+    user.cart.splice(existedProductIndex,1);
+    await user.save();
+
+    return res.status(200)
+    .json(
+        new ApiResponse(200,user," Product removed Successfully to the cart !! ")
+    );
+   
+});
+
+
 const refreshAccessToken = asyncHandler(async(req,res) => {
 
     const incommingRefreshToken = req.cookies.refreshToken || req.body.refreshToken;
@@ -223,55 +385,9 @@ const refreshAccessToken = asyncHandler(async(req,res) => {
 
 });
 
-const changeCurrentPassword = asyncHandler(async(req,res) => {
 
-    const {oldPassword,newPassword} = req.body;
 
-    const user = await User.findById(req.user._id);
-
-    const isPasswordValid = await user.isPasswordCorrect(oldPassword);
-
-    if(!isPasswordValid) throw new ApiError(401,"Invalid Password ! ");
-
-    user.password = newPassword;
-    await user.save({ValidateBeforeSave:false});
-
-    return res
-    .status(200)
-    .json(new ApiResponse(200,{},"Password Changed SuccessFully !! "));
-
-});
-
-const getCurrentUser = asyncHandler(async(req,res) => {
-
-    return res.status(200)
-    .json(new ApiResponse(200,req.user,"current User Fetched Successfully !! "));
-});
-
-const updateAccountDetails = asyncHandler(async(req,res) => {
-
-    const {fullName,email} = req.body;
-
-    if(!fullName || !email) throw new ApiError(400,"All Fields are required ! ");
-
-    const user = await User.findByIdAndUpdate(
-        req.user._id,
-        {
-            $set:{
-                fullName,   // both ways of writing is correct 
-                email:email  // email : email, ---->  ultimately means email,
-            }
-        },
-        {
-            new:true
-        }
-    ).select("-password");
-
-    return res.status(200)
-    .json(
-        new ApiResponse(200,user,"User Account Details Updated Successfully !! ")
-    );
-});
+/*
 
 const updateUserAvatar = asyncHandler(async(req,res) => {
 
@@ -307,11 +423,15 @@ const updateUserAvatar = asyncHandler(async(req,res) => {
 
 export { 
     registerUser,
-    // loginUser,
-    // logoutUser,
-    // refreshAccessToken,
-    // changeCurrentPassword,
+    loginUser,
+    logoutUser,
+    refreshAccessToken,
+    changeCurrentPassword,
+    addProductToWishlist,
+    addProductToCart,
+    removeProductFromWishList,
+    removeProductFromCart,
     // getCurrentUser,
-    // updateAccountDetails,
+    updateAccountDetails,
     // updateUserAvatar,
 };

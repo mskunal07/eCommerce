@@ -25,9 +25,14 @@ app.use(bodyParser.json());
 
 
 import userRoute from "./routes/user.routes.js"
-
+import productRoute from "./routes/product.routes.js"
+import orderRoute from "./routes/order.routes.js"
+import collectionRoute from "./routes/collection.route.js"
 
 app.use("/api/v1/users",userRoute);
+app.use("/api/v1/products",productRoute);
+app.use("/api/v1/order",orderRoute);
+app.use("/api/v1/collection",collectionRoute);
 
 //   http://localhost:8000/api/v1/users/Register
 

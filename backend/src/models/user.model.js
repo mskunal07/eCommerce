@@ -13,11 +13,10 @@ const userSchema = new mongoose.Schema({
         trim: true,
         index: true,   // due to index the searching becomes more optimised so though it is expensive its worth while
     },
-    fullName: {
-        type:String,
-        required: true,
-        trim: true,
-        index: true,
+    phoneNumber: {
+        type:Number,
+        required:true,
+        unique:true
     },
     email: {
         type:String,
@@ -26,11 +25,15 @@ const userSchema = new mongoose.Schema({
         lowercase: true,
         trim: true,
     },
-
-    // address:{
-
-    // },
-    
+    address:{
+        type:String,
+        required:true
+    },
+    role: {
+        type: String,
+        enum: ['admin', 'user'],
+        default: 'user'
+    },
     password: {
         type: String,
         required: [true,'Password is Required '],
@@ -38,6 +41,24 @@ const userSchema = new mongoose.Schema({
     refreshToken: {
         type: String,
     },
+    cart:[
+        {
+            type:mongoose.Schema.Types.ObjectId,
+            ref:'Product'
+        }
+    ],
+    orders:[
+        {
+            type:mongoose.Schema.Types.ObjectId,
+            ref:'Order'
+        }
+    ],
+    wishList:[
+        {
+            type:mongoose.Schema.Types.ObjectId,
+            ref:'Product'
+        }
+    ]
     
 },{timestamps:true});
 
@@ -68,7 +89,7 @@ userSchema.methods.generateAccessToken = function() {
             _id: this._id,
             email: this.email,
             username: this.username,
-            fullName: this.fullName,
+            address:this.address
         },
         process.env.ACCESS_TOKEN_SECRET,
         {
@@ -88,6 +109,11 @@ userSchema.methods.generateRefreshToken = function() {
             expiresIn:process.env.REFRESH_TOKEN_EXPIRY
         }
     )
+}
+
+userSchema.methods.verifyAdmin = function() {
+    if(this.role === "admin") return 1;
+    return 0;
 }
 
 //  pre middleware is used when one want to run some functionality just before saving 
